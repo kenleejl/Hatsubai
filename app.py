@@ -36,40 +36,48 @@ def handle_query():
     if not strict:
         keywords = []
     urls = []
-    for url in car_urls:
+    for url in set(car_urls):
         strict_fail = any([kw.lower() not in url for kw in keywords])
         if strict_fail:
             print(f"Skipped {url} [STRICT MODE]")
             continue
         urls.append(url)
-    print(urls)
     # emit("urls", urls)
     return jsonify(urls)
 
 
 # @socketio.on("get_data")
 @app.route("/get_data", methods=["POST"])
-# def get_data(url):
 def get_data():
+    # Ensure the URL parameter is provided
+    if "url" not in request.values:
+        return jsonify({"error": "URL parameter is missing"}), 400
+
     url = request.values["url"]
-    use_api = request.values["use_api"] == "true"
-    if use_api:
-        item = get_data_api(url)
-    else:
-        item = get_name_date_price(get_html(url))
+
+    print(f"Getting data from {url}")
+    # make url unique
+
+
+
+    # Assuming get_name_date_price and get_html_carousell are defined elsewhere
+    item = get_name_date_price(get_html_carousell(url))
+
     if not item:
         print(f"Skipped {url} [INVALID URL]")
-        return
+        return jsonify({"error": "Invalid URL or data could not be retrieved"}), 404
+
     item["url"] = url
-    # {
-    #     'name': 'Class D Fire Extinguisher 12kg', 
-    #     'date':'2020/7/17', 
-    #     'price':'0.10', 
-    #     'url':'https://www.carousell.sg/p/class-d-fire-extinguisher-12kg-1021336012'
-    # }
     print(item)
-    # emit("item", {"data": item})
-    return jsonify(item)
+
+    # Try to return the item as JSON
+    try:
+        item_in_json = jsonify(item)
+        return item_in_json
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"error": "Failed to serialize item"}), 500
+
 
 
 if __name__ == "__main__":

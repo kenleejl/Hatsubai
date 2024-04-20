@@ -14,12 +14,12 @@ function date_sort(a, b) {
     return a.date - b.date;
 }
 
-function handle_urls(urls, use_api, sold_only) {
+function handle_urls(urls, sold_only) {
     chartOriginalData = [];
     // console.log(urls)
     urls.forEach((url, idx) => {
         // socket.emit("get_data", url);
-        $.post('/get_data', { url: url, use_api: use_api }, function (item) {
+        $.post('/get_data', { url: url }, function (item) {
             // console.log(item)
             if (!sold_only || item.status == "S") populate_chart(item);
             if (idx == urls.length - 1) $("#search-btn").removeClass("spin");
@@ -78,7 +78,19 @@ function init_chart() {
                     intersect: false,
                     callbacks: {
                         beforeTitle: title_tooltip,
-                        afterTitle: url_tooltip
+                        afterTitle: url_tooltip,
+                        label: function(context) {
+                            var status = context.raw.status;
+                            var set_label;
+                            if (status == "S") {
+                                set_label = "Sold for S$" + context.raw.price;
+                            } else if (status == "R") {
+                                set_label = "Reserved for S$" + context.raw.price;
+                            } else {
+                                set_label = context.raw.price;
+                            }
+                            return set_label;
+                        }
                     }
                 },
                 zoom: {
@@ -128,7 +140,7 @@ function init_chart() {
 function populate_chart(item) {
     // console.log(item)
     if (!item) return;
-    myChart.data.datasets[0].data.push({ date: moment(item.date, "YYYY/MM/DD"), price: item.price, name: item.name, url: item.url });
+    myChart.data.datasets[0].data.push({ date: moment(item.date, "YYYY/MM/DD"), price: item.price, name: item.name, url: item.url, status: item.status});
     myChart.data.datasets[0].data.sort(date_sort);
     myChart.update();
 }
@@ -143,12 +155,11 @@ $("#search-form").submit(function (e) {
     let query = form_data[0].value;
     let qty = form_data[1].value;
     let strict = $("#strict").is(":checked");
-    let use_api = $("#use_api").is(":checked");
     let sold_only = $("#sold_only").is(":checked");
     // console.log(form_data);
     // console.log(strict);
     $.post('/query', { query: query, qty: qty, strict: strict }, function (urls) {
-        handle_urls(urls, use_api, sold_only)
+        handle_urls(urls, sold_only)
     });
     // socket.emit("query", { "query": query, "qty": qty, "strict": strict });
 });

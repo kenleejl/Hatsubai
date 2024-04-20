@@ -28,6 +28,19 @@ def get_html(url):
     # f.write(res)
     return res
 
+def get_html_carousell(url):
+### add these to my get request headers
+    headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Encoding': 'gzip, deflate, br, zstd',
+    'Accept-Language': 'en-SG,en-US;q=0.9,en;q=0.8',
+    'Cache-Control': 'max-age=0',
+}
+    
+    res = requests.get(url, headers=headers).text
+    return res
+
 
 def gsearch(query, results=None):
     num = ""
@@ -40,7 +53,7 @@ def gsearch(query, results=None):
 
 
 def get_valid_urls(html):
-    return re.findall(r"(https://www.carousell.sg/p/.+?-?\d{7,})", html)
+    return re.findall(r"https://www.carousell.sg/p/[^&\s]+-\d{7,}", html)
 
 
 def format_date(date_str):
@@ -49,6 +62,9 @@ def format_date(date_str):
 
 def get_name_date_price(html):
     try:
+        if "This listing is no longer available" in html:
+            print("Listing is no longer available")
+            return
         photo_url = re.findall(
             r"https://media.karousell.com/media/photos/products/[0-9]{4}/[0-9]{1,}/[0-9]{1,}",
             html,
@@ -60,8 +76,8 @@ def get_name_date_price(html):
         price = price_str[0].strip("S$<!-- -->").rstrip("</p><div>").replace(",", "")
         name_str = re.findall(r'"name":".+?","offers"', html)
         name = name_str[0][8:-10]
-        sold_str = re.findall(r'<button[^>]*>Sold<\/button>', html)
-        reserved_str = re.findall(r'<button[^>]*>Reserve<\/button>', html)
+        sold_str = re.findall(r'<button[^>]*><div[^>]*>Sold<\/div><\/button>', html)
+        reserved_str = re.findall(r'<button[^>]*><div[^>]*>Reserve<\/div><\/button>', html)
         status = "S" if sold_str else ("R" if reserved_str else "L")
     except IndexError:
         return
@@ -77,29 +93,6 @@ def get_name_date_price(html):
 def iso_to_date(iso_str):
     parsed = dateutil.parser.isoparse(iso_str)
     return str(parsed.strftime("%Y/%m/%d"))
-
-
-def get_data_api(url):
-    print("USING API")
-    try:
-        item_id = url.split("-")[-1].strip("/")
-        item_api_url = (
-            f"https://www.carousell.sg/api-service/listing/3.1/listings/{item_id}/detail/"
-        )
-        resp_json = requests.get(item_api_url).json()
-        item_main_json = resp_json["data"]["screens"][0]["meta"]["default_value"]
-        title = item_main_json["title"]
-        date = iso_to_date(item_main_json["time_created"])
-        price = item_main_json["price"]
-        status = item_main_json["status"]
-        return {
-            "name": title, 
-            "date": date, 
-            "price": price,
-            "status": status,
-        }
-    except:
-        return
 
 def gen_plot(data_list):
     data_list.sort(key=lambda x: format_date(x[1]))
